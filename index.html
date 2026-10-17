@@ -1,14 +1,15 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<title>Gesture Meme Detector</title>
+<title>手势猫咪 meme 相机</title>
 <style>
   html, body {
     margin: 0;
     height: 100%;
     background: #000;
     overflow: hidden;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
   }
   .split {
     display: flex;
@@ -38,11 +39,24 @@
     top: 8px;
     left: 8px;
     color: #7cffa0;
-    font: 13px/1.4 monospace;
+    font: 13px/1.5 "JetBrains Mono", Consolas, monospace;
     white-space: pre;
     text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 3px #000;
     pointer-events: none;
     z-index: 2;
+  }
+  #gestureHelp {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    color: #9ad;
+    font: 12px/1.5 sans-serif;
+    background: rgba(0,0,0,.55);
+    padding: 6px 10px;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 2;
+    max-width: 46%;
   }
 </style>
 </head>
@@ -51,6 +65,9 @@
     <div class="pane">
       <video id="video" playsinline muted autoplay></video>
       <div id="debugHud"></div>
+      <div id="gestureHelp">
+        手势：🤘摇滚 / ✊拳头 / ☝️一指向上 / 🤫嘘 / 🤏双指并拢 / 🤲捂脸 / 😱崩溃猫 / 🙆抱头 / 🖐️摊手 / 👀转头斜眼
+      </div>
     </div>
     <div class="pane">
       <img id="memeImg" src="memes/pokercat.jpg" alt="" />
