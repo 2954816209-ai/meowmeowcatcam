@@ -38,15 +38,10 @@ const GESTURE_LABEL_ZH = {
   sideEyeCat: "斜眼 👀",
 };
 
-// 防抖：连续多少帧命中同一手势才切换
 const STABLE_FRAMES_REQUIRED = 5;
-// 多久没看到手就回到默认
 const DEFAULT_FALLBACK_MS = 600;
-// 人脸丢失后多久内还信任旧的人脸框
 const FACE_STALE_MS = 1200;
-// 转头多少度算斜眼
 const SIDE_EYE_YAW_DEG = 15.0;
-// 手靠近脸的判定距离
 const HAND_COVER_FACE_DIST_FACE_LOST = 1.3;
 const HAND_COVER_FACE_DIST_FACE_SEEN = 0.7;
 
@@ -64,43 +59,78 @@ let lastFace = null;
 let lastFaceSeenThisFrame = false;
 let lastYawDebug = 0;
 
-async function init() {
-  const fileset = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
-  );
-
-  handLandmarker = await HandLandmarker.createFromOptions(fileset, {
-    baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-      delegate: "GPU",
-    },
-    runningMode: "VIDEO",
-    numHands: 2,
-  });
-
-  faceLandmarker = await FaceLandmarker.createFromOptions(fileset, {
-    baseOptions: {
-      modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-      delegate: "GPU",
-    },
-    runningMode: "VIDEO",
-    numFaces: 1,
-    outputFacialTransformationMatrixes: true,
-  });
-
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { width: 640, height: 480 },
-    audio: false,
-  });
-  video.srcObject = stream;
-  await video.play();
-
-  requestAnimationFrame(loop);
+function showError(msg) {
+  let el = document.getElementById("errBox");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "errBox";
+    el.style.cssText =
+      "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#c00;color:#fff;padding:16px 20px;border-radius:10px;max-width:88%;z-index:99;font:14px/1.6 sans-serif;white-space:pre-wrap;";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
 }
 
-// ---- 几何工具 ---------------------------------------------------------
+let fileset;
+async function createDetector(type, options) {
+  try {
+    return await type.createFromOptions(fileset, { ...options, delegate: "GPU" });
+  } catch (e) {
+    console.warn("GPU failed, fallback CPU:", e);
+    return type.createFromOptions(fileset, { ...options, delegate: "CPU" });
+  }
+}
+
+async function init() {
+  try {
+    fileset = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    );
+
+    handLandmarker = await createDetector(HandLandmarker, {
+      baseOptions: {
+        modelAssetPath:
+          "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      },
+      runningMode: "VIDEO",
+      numHands: 2,
+    });
+
+    faceLandmarker = await createDetector(FaceLandmarker, {
+      baseOptions: {
+        modelAssetPath:
+          "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+      },
+      runningMode: "VIDEO",
+      numFaces: 1,
+      outputFacialTransformationMatrixes: true,
+    });
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      showError("当前浏览器不支持摄像头 API。\n请用手机自带 Safari / Chrome 打开，\n不要用豆包/微信内置浏览器。");
+      return;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false,
+    });
+    video.srcObject = stream;
+    await video.play();
+
+    requestAnimationFrame(loop);
+  } catch (err) {
+    console.error(err);
+    let msg = "启动失败：" + (err?.name || "") + " " + (err?.message || err);
+    if (err?.name === "NotAllowedError") {
+      msg = "摄像头权限被拒绝了。\n\n请在浏览器地址栏左侧点相机图标，\n允许摄像头后刷新页面。";
+    } else if (err?.name === "NotFoundError") {
+      msg = "没找到摄像头设备。";
+    }
+    showError(msg);
+  }
+}
+
 function vec(a, b) {
   return { x: b.x - a.x, y: b.y - a.y, z: (b.z || 0) - (a.z || 0) };
 }
